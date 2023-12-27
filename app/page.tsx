@@ -8,14 +8,5 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 export default function Home() {
-  // const pathname = usePathname();
-  // const isApp = pathname.startsWith("/app");
-  // if (isApp) {
-  //   const { user: firebaseUser } = useFirebaseUser({
-  //     canGoHomeIfUnauthorized: true,
-  //   });
-  //   return firebaseUser;
-  // }
-
   return <Authpage />;
 }

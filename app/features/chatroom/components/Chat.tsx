@@ -1,7 +1,7 @@
 "use client";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { useEffect, useState } from "react";
+import { useRef, useEffect, useState } from "react";
 import { ChatBox } from "./ChatBox";
 import {
   faArrowRight,
@@ -9,29 +9,72 @@ import {
   faMicrophone,
   faPlus,
 } from "@fortawesome/free-solid-svg-icons";
-import axios from "axios";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  orderBy,
+  limit,
+} from "firebase/firestore";
+import { firestore } from "@/app/lib/firebase";
+// import { collection } from "firebase/firestore";
+// import { useCollectionData } from "react-firebase-hooks/firestore";
+// import { firestore } from "@/app/lib/firebase";
 
 export const Chat = ({ name }: { name: string }) => {
   const [sendActive, setSendActive] = useState<boolean>(false);
-  // const [message, setMessage] = useState<string>("");
-  const [messages, setMessages] = useState<Array<string>>([]);
+  const [showMessage, setShowMessage] = useState<boolean>(true);
+  // const messagesRef = collection(firestore, "messages");
+  // const q = query(messagesRef, orderBy("createdAt"), limit(25));
+  // const querySnapshot = getDocs(q);
+  // const [messages] =
+  // const [messages, setMessages] = useState<{ id: string }[]>();
+  const useGetDocs = () => {
+    const [messages, setMessages] = useState<string[]>([]);
+    const messagesRef = collection(firestore, "messages");
+    const q = query(messagesRef, orderBy("createdAt"), limit(25));
 
-  const port = process.env.NEXT_PUBLIC_API_PORT;
-  const fetchChats = async () => {
-    // const data = await axios.get(`${port}/api/chat`);
-    // console.log(data.data);
-    // setMessages(data.data);
+    useEffect(() => {
+      const getDocuments = async () => {
+        const data = await getDocs(q);
+        setMessages(data.docs.map((doc) => doc.get("value")));
+      };
+
+      getDocuments();
+    }, []);
+
+    return messages;
   };
 
-  useEffect(() => {
-    fetchChats();
-  }, []);
-
+  const messages = useGetDocs();
   // useEffect(() => {
-  //   fetch("http://localhost:8000/message")
-  //     .then((res) => res.json())
-  //     .then((data) => setMessages(data.message));
+  //   const viewDoc = async () => {
+  //     const messagesRef = collection(firestore, "messages");
+  //     const q = query(messagesRef, orderBy("createdAt"), limit(25));
+  //     const querySnapshot = await getDocs(q);
+  //     querySnapshot.forEach((doc) => {
+  //       const newMessage = doc.get("value");
+  //       setMessages((current) => [...current, newMessage]);
+  //     });
+  //     console.log(messages);
+  //     setShowMessage(false);
+  //   };
+
+  //   viewDoc();
   // }, []);
+
+  const addNewDoc = async (e: any) => {
+    e.preventDefault();
+    try {
+      const docRef = await addDoc(collection(firestore, "messages"), {
+        value: "Test message",
+      });
+      console.log("Document written with ID: ", docRef.id);
+    } catch (e) {
+      console.error("Error adding document: ", e);
+    }
+  };
 
   const ReceivedMessages = ({
     key,
@@ -53,7 +96,7 @@ export const Chat = ({ name }: { name: string }) => {
     );
   };
 
-  const SentMessages = ({ key, message }: { message: string; key: number }) => {
+  const SentMessages = ({ key, message }: { message: any; key: number }) => {
     return (
       <div className="my-4 block ml-auto">
         <p
@@ -74,16 +117,16 @@ export const Chat = ({ name }: { name: string }) => {
     }
   }
 
-  function addMessage(e: any) {
-    e.preventDefault();
-    const newMessage: string = e.target.typeBox.value;
-    setMessages((current) => [...current, newMessage]);
-    e.target.typeBox.value = "";
-    setSendActive(false);
-  }
+  // function addMessage(e: any) {
+  //   e.preventDefault();
+  //   const newMessage: string = e.target.typeBox.value;
+  //   setMessages((current) => [...current, newMessage]);
+  //   e.target.typeBox.value = "";
+  //   setSendActive(false);
+  // }
 
-  const mapMessage = messages.map((message: string, key: number) => {
-    return <SentMessages key={key} message={message} />;
+  const mapMessage = messages?.map((message, index) => {
+    return <SentMessages key={index} message={message} />;
   });
 
   return (
@@ -96,9 +139,9 @@ export const Chat = ({ name }: { name: string }) => {
       <div className="h-16 bg-[#403DC8] absolute bottom-0 w-full flex items-center rounded-b-3xl">
         <form
           className="w-full flex gap-4 justify-center items-center"
-          onSubmit={addMessage}
+          // onSubmit={addMessage}
         >
-          <button className="h-9 w-9 bg-white rounded-full">
+          <button className="h-9 w-9 bg-white rounded-full" onClick={addNewDoc}>
             <FontAwesomeIcon
               className="text-gray-500"
               icon={faPlus}
