@@ -16,66 +16,16 @@ import {
   query,
   orderBy,
   limit,
+  setDoc,
+  doc,
+  onSnapshot,
 } from "firebase/firestore";
 import { firestore } from "@/app/lib/firebase";
-// import { collection } from "firebase/firestore";
-// import { useCollectionData } from "react-firebase-hooks/firestore";
-// import { firestore } from "@/app/lib/firebase";
 
 export const Chat = ({ name }: { name: string }) => {
   const [sendActive, setSendActive] = useState<boolean>(false);
-  const [showMessage, setShowMessage] = useState<boolean>(true);
-  // const messagesRef = collection(firestore, "messages");
-  // const q = query(messagesRef, orderBy("createdAt"), limit(25));
-  // const querySnapshot = getDocs(q);
-  // const [messages] =
-  // const [messages, setMessages] = useState<{ id: string }[]>();
-  const useGetDocs = () => {
-    const [messages, setMessages] = useState<string[]>([]);
-    const messagesRef = collection(firestore, "messages");
-    const q = query(messagesRef, orderBy("createdAt"), limit(25));
 
-    useEffect(() => {
-      const getDocuments = async () => {
-        const data = await getDocs(q);
-        setMessages(data.docs.map((doc) => doc.get("value")));
-      };
-
-      getDocuments();
-    }, []);
-
-    return messages;
-  };
-
-  const messages = useGetDocs();
-  // useEffect(() => {
-  //   const viewDoc = async () => {
-  //     const messagesRef = collection(firestore, "messages");
-  //     const q = query(messagesRef, orderBy("createdAt"), limit(25));
-  //     const querySnapshot = await getDocs(q);
-  //     querySnapshot.forEach((doc) => {
-  //       const newMessage = doc.get("value");
-  //       setMessages((current) => [...current, newMessage]);
-  //     });
-  //     console.log(messages);
-  //     setShowMessage(false);
-  //   };
-
-  //   viewDoc();
-  // }, []);
-
-  const addNewDoc = async (e: any) => {
-    e.preventDefault();
-    try {
-      const docRef = await addDoc(collection(firestore, "messages"), {
-        value: "Test message",
-      });
-      console.log("Document written with ID: ", docRef.id);
-    } catch (e) {
-      console.error("Error adding document: ", e);
-    }
-  };
-
+  // show received messages ui
   const ReceivedMessages = ({
     key,
     message,
@@ -96,6 +46,7 @@ export const Chat = ({ name }: { name: string }) => {
     );
   };
 
+  // show sent messages ui
   const SentMessages = ({ key, message }: { message: any; key: number }) => {
     return (
       <div className="my-4 block ml-auto">
@@ -109,6 +60,7 @@ export const Chat = ({ name }: { name: string }) => {
     );
   };
 
+  // handle voice message/sent button
   function handleChange(e: { target: { value: string } }) {
     if (e.target.value) {
       setSendActive(true);
@@ -117,13 +69,73 @@ export const Chat = ({ name }: { name: string }) => {
     }
   }
 
-  // function addMessage(e: any) {
-  //   e.preventDefault();
-  //   const newMessage: string = e.target.typeBox.value;
-  //   setMessages((current) => [...current, newMessage]);
-  //   e.target.typeBox.value = "";
-  //   setSendActive(false);
-  // }
+  // add new message
+  const addMessage = async (e: any) => {
+    const newMessage: string = e.target.typeBox.value;
+    e.preventDefault();
+
+    const currentDate = new Date();
+    const currentDayOfMonth = currentDate.getDate();
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
+
+    const dateString =
+      currentDayOfMonth + "-" + (currentMonth + 1) + "-" + currentYear;
+
+    const timestamp = currentDate.toLocaleTimeString([], {
+      timeStyle: "medium",
+    });
+
+    if (newMessage) {
+      const newMessagRef = doc(collection(firestore, "messages"));
+      try {
+        const docRef = await setDoc(newMessagRef, {
+          value: newMessage,
+          createdAt: dateString + " " + timestamp,
+        });
+        console.log("Document written with ID: ", docRef);
+      } catch (e) {
+        console.error("Error adding document: ", e);
+      }
+
+      e.target.typeBox.value = "";
+      setSendActive(false);
+    }
+  };
+
+  // add new chat
+  const addNewDoc = async (e: any) => {
+    e.preventDefault();
+    try {
+      const docRef = await addDoc(collection(firestore, "messages"), {
+        value: "Test message",
+      });
+      console.log("Document written with ID: ", docRef.id);
+    } catch (e) {
+      console.error("Error adding document: ", e);
+    }
+  };
+
+  // show messages
+  const useGetDocs = () => {
+    const [messages, setMessages] = useState<string[]>([]);
+    const messagesRef = collection(firestore, "messages");
+    const q = query(messagesRef, orderBy("createdAt", "asc"), limit(25));
+
+    useEffect(() => {
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const newMessages = querySnapshot.docs.map((doc) => doc.get("value"));
+        setMessages(newMessages);
+      });
+
+      // Cleanup the listener when the component unmounts
+      return () => unsubscribe();
+    }, [q]);
+
+    return messages;
+  };
+
+  const messages = useGetDocs();
 
   const mapMessage = messages?.map((message, index) => {
     return <SentMessages key={index} message={message} />;
@@ -135,13 +147,19 @@ export const Chat = ({ name }: { name: string }) => {
         <p className="text-2xl">{name}</p>
         <FontAwesomeIcon icon={faEllipsisVertical} size="xl" />
       </div>
-      <div className="flex flex-col">{mapMessage}</div>
+      <div className="flex flex-col absolute w-full top-14 bottom-16 overflow-scroll">
+        {mapMessage}
+      </div>
       <div className="h-16 bg-[#403DC8] absolute bottom-0 w-full flex items-center rounded-b-3xl">
         <form
           className="w-full flex gap-4 justify-center items-center"
-          // onSubmit={addMessage}
+          onSubmit={addMessage}
         >
-          <button className="h-9 w-9 bg-white rounded-full" onClick={addNewDoc}>
+          <button
+            className="h-9 w-9 bg-white rounded-full"
+            onClick={addNewDoc}
+            type="button"
+          >
             <FontAwesomeIcon
               className="text-gray-500"
               icon={faPlus}
